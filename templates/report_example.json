@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "code": "600867",
+    "name": "通化东宝",
+    "generated_at": "2026-04-02T18:00:00",
+    "analysis_days": 30,
+    "history_bars": 120
+  },
+  "data_status": {
+    "realtime": "complete",
+    "history": "complete",
+    "indicators": "complete"
+  },
+  "warnings": [],
+  "realtime": {
+    "price": 9.75,
+    "change_percent": 1.67,
+    "change_amount": 0.16,
+    "open": 9.63,
+    "prev_close": 9.59,
+    "high": 9.86,
+    "low": 9.51,
+    "volume_hands": 1043943.0,
+    "volume_shares": 104394300.0,
+    "volume_wan_hands": 104.39,
+    "amount_wan_yuan": 101179.01,
+    "amount_yi_yuan": 10.12,
+    "timestamp": "2026-04-02 16:14:28"
+  },
+  "kline_pattern": {
+    "single": {},
+    "engulfing": {}
+  },
+  "volume_price": {},
+  "moving_averages": {},
+  "indicators": {},
+  "score": {},
+  "support_resistance": {},
+  "advice": {}
+}
