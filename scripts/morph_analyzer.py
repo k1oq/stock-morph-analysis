@@ -10,9 +10,12 @@ A 股形态学分析工具主程序。
 from __future__ import annotations
 
 import argparse
+import csv
 from datetime import datetime
 import json
 import math
+from pathlib import Path
+import re
 import sys
 from typing import Dict, List, Optional
 
@@ -23,6 +26,24 @@ from tencent_api import get_realtime_data
 
 
 LINE_WIDTH = 66
+WATCHLIST_SORT_LABELS = {
+    "score": "评分",
+    "change": "涨跌幅",
+}
+WATCHLIST_CSV_COLUMNS = (
+    ("rank", "排名"),
+    ("code", "代码"),
+    ("name", "名称"),
+    ("price", "最新价"),
+    ("change_percent", "涨跌幅(%)"),
+    ("score", "评分"),
+    ("signal", "评分结论"),
+    ("action", "操作建议"),
+    ("warning_count", "警告数"),
+    ("history_status", "历史数据"),
+    ("indicator_status", "指标数据"),
+    ("generated_at", "生成时间"),
+)
 ICON_MAP = {
     True: {
         "bullish": "🟢",
@@ -506,6 +527,132 @@ def build_advice(total_score: float, support_resistance: Dict, score_signal: str
     }
 
 
+def load_watchlist_codes(path: str) -> List[str]:
+    watchlist_path = Path(path)
+    try:
+        content = watchlist_path.read_text(encoding="utf-8-sig")
+    except OSError as exc:
+        raise RuntimeError(f"读取自选股文件失败：{exc}") from exc
+
+    codes: List[str] = []
+    seen = set()
+    for raw_line in content.splitlines():
+        cleaned_line = raw_line.split("#", 1)[0].strip()
+        if not cleaned_line:
+            continue
+
+        for token in re.split(r"[\s,，;；]+", cleaned_line):
+            code = token.strip()
+            if not code or code in seen:
+                continue
+            seen.add(code)
+            codes.append(code)
+
+    if not codes:
+        raise RuntimeError(f"自选股文件为空：{path}")
+    return codes
+
+
+def build_watchlist_summary_entry(analysis_result: Dict) -> Dict:
+    meta = analysis_result["meta"]
+    realtime = analysis_result["realtime"]
+    score = analysis_result["score"]
+    advice = analysis_result["advice"]
+    data_status = analysis_result["data_status"]
+
+    return {
+        "code": meta["code"],
+        "name": meta["name"],
+        "price": realtime["price"],
+        "change_percent": realtime["change_percent"],
+        "score": score["total"],
+        "signal": score["signal"],
+        "action": advice["action"],
+        "warning_count": len(analysis_result["warnings"]),
+        "history_status": data_status["history"],
+        "indicator_status": data_status["indicators"],
+        "generated_at": meta["generated_at"],
+    }
+
+
+def sort_watchlist_summary(
+    entries: List[Dict],
+    sort_by: str = "score",
+    descending: bool = True,
+) -> List[Dict]:
+    if sort_by not in WATCHLIST_SORT_LABELS:
+        raise ValueError(f"不支持的排序字段：{sort_by}")
+
+    if sort_by == "change":
+        key_fn = lambda item: (item["change_percent"], item["score"], item["code"])
+    else:
+        key_fn = lambda item: (item["score"], item["change_percent"], item["code"])
+
+    return sorted(entries, key=key_fn, reverse=descending)
+
+
+def build_watchlist_analysis_result(
+    codes: List[str],
+    days: int = 30,
+    sort_by: str = "score",
+    descending: bool = True,
+    source: Optional[str] = None,
+) -> Dict:
+    normalized_codes: List[str] = []
+    seen = set()
+    for raw_code in codes:
+        code = str(raw_code).strip()
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        normalized_codes.append(code)
+
+    if not normalized_codes:
+        raise RuntimeError("自选股列表为空")
+
+    results: List[Dict] = []
+    summary_entries: List[Dict] = []
+    failures: List[Dict] = []
+
+    for code in normalized_codes:
+        try:
+            analysis_result = build_analysis_result(code, days=days)
+        except RuntimeError as exc:
+            failures.append({"code": code, "error": str(exc)})
+            continue
+
+        results.append(analysis_result)
+        summary_entries.append(build_watchlist_summary_entry(analysis_result))
+
+    sorted_summary = sort_watchlist_summary(summary_entries, sort_by=sort_by, descending=descending)
+    ranked_summary = []
+    for index, item in enumerate(sorted_summary, start=1):
+        ranked_item = dict(item)
+        ranked_item["rank"] = index
+        ranked_summary.append(ranked_item)
+
+    rank_by_code = {item["code"]: item["rank"] for item in ranked_summary}
+    sorted_results = sorted(results, key=lambda item: rank_by_code.get(item["meta"]["code"], sys.maxsize))
+
+    return {
+        "meta": {
+            "mode": "watchlist",
+            "generated_at": datetime.now().isoformat(timespec="seconds"),
+            "analysis_days": days,
+            "source": source,
+            "requested": len(normalized_codes),
+            "completed": len(ranked_summary),
+            "failed": len(failures),
+            "sort_by": sort_by,
+            "sort_order": "desc" if descending else "asc",
+        },
+        "codes": normalized_codes,
+        "summary": ranked_summary,
+        "results": sorted_results,
+        "failures": failures,
+    }
+
+
 def build_analysis_result(code: str, days: int = 30) -> Dict:
     realtime = get_realtime_data(code, raise_on_error=True)
     warnings: List[str] = []
@@ -761,6 +908,71 @@ def generate_report(analysis_result: Dict, detailed: bool = False) -> str:
     return "\n".join(lines)
 
 
+def export_watchlist_csv(batch_result: Dict, output_path: str) -> None:
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    with output.open("w", encoding="utf-8-sig", newline="") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow([title for _, title in WATCHLIST_CSV_COLUMNS])
+        for item in batch_result["summary"]:
+            writer.writerow([item.get(field, "") for field, _ in WATCHLIST_CSV_COLUMNS])
+
+
+def generate_watchlist_report(batch_result: Dict, detailed: bool = False) -> str:
+    meta = batch_result["meta"]
+    summary = batch_result["summary"]
+    failures = batch_result["failures"]
+
+    lines = []
+    lines.append("=" * LINE_WIDTH)
+    lines.append("自选股批量分析汇总")
+    lines.append("=" * LINE_WIDTH)
+    if meta.get("source"):
+        lines.append(f"来源文件：{meta['source']}")
+    lines.append(
+        f"股票数量：{meta['requested']}  成功：{meta['completed']}  失败：{meta['failed']}"
+    )
+    lines.append(
+        f"排序方式：按{WATCHLIST_SORT_LABELS[meta['sort_by']]}{'降序' if meta['sort_order'] == 'desc' else '升序'}"
+    )
+    lines.append("")
+
+    lines.append("【汇总排名】")
+    if summary:
+        lines.append("排名 | 代码 | 名称 | 最新价 | 涨跌幅 | 评分 | 结论 | 建议")
+        for item in summary:
+            lines.append(
+                f"{item['rank']:>2} | {item['code']} | {item['name']} | "
+                f"{item['price']:.2f} | {item['change_percent']:+.2f}% | "
+                f"{item['score']:+.2f} | {item['signal']} | {item['action']}"
+            )
+    else:
+        lines.append("暂无成功的分析结果。")
+    lines.append("")
+
+    if failures:
+        lines.append("【失败列表】")
+        for failure in failures:
+            lines.append(f"{failure['code']}: {failure['error']}")
+        lines.append("")
+
+    if detailed and batch_result["results"]:
+        lines.append("【个股详情】")
+        lines.append("")
+        for index, analysis_result in enumerate(batch_result["results"]):
+            if index:
+                lines.append("")
+            lines.append(generate_report(analysis_result, detailed=True))
+        return "\n".join(lines)
+
+    lines.append("=" * LINE_WIDTH)
+    lines.append("以上分析仅供参考，不构成投资建议。")
+    lines.append("股市有风险，投资需谨慎。")
+    lines.append("=" * LINE_WIDTH)
+    return "\n".join(lines)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="A 股形态学分析工具",
@@ -770,22 +982,59 @@ def main() -> None:
   python3 scripts/morph_analyzer.py --code 600867
   python3 scripts/morph_analyzer.py --code 000001 --detailed
   python3 scripts/morph_analyzer.py --code 600519 --json
+  python3 scripts/morph_analyzer.py --watchlist stocks.txt --sort-by score
+  python3 scripts/morph_analyzer.py --watchlist stocks.txt --sort-by change --csv watchlist.csv
         """,
     )
-    parser.add_argument("--code", required=True, help="股票代码")
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument("--code", help="股票代码")
+    input_group.add_argument("--watchlist", help="自选股文件路径")
     parser.add_argument("--days", type=int, default=30, help="分析天数")
     parser.add_argument("--detailed", action="store_true", help="详细报告")
     parser.add_argument("--json", action="store_true", help="JSON 输出")
+    parser.add_argument(
+        "--sort-by",
+        choices=tuple(WATCHLIST_SORT_LABELS),
+        default="score",
+        help="批量模式排序字段",
+    )
+    parser.add_argument(
+        "--sort-order",
+        choices=("desc", "asc"),
+        default="desc",
+        help="批量模式排序方向",
+    )
+    parser.add_argument("--csv", help="批量模式导出的 CSV 路径")
     args = parser.parse_args()
 
+    if args.csv and not args.watchlist:
+        print("--csv 仅支持与 --watchlist 一起使用", file=sys.stderr)
+        raise SystemExit(1)
+
     try:
-        analysis_result = build_analysis_result(args.code, days=args.days)
+        if args.watchlist:
+            codes = load_watchlist_codes(args.watchlist)
+            analysis_result = build_watchlist_analysis_result(
+                codes,
+                days=args.days,
+                sort_by=args.sort_by,
+                descending=args.sort_order == "desc",
+                source=args.watchlist,
+            )
+            if args.csv:
+                export_watchlist_csv(analysis_result, args.csv)
+        else:
+            analysis_result = build_analysis_result(args.code, days=args.days)
     except RuntimeError as exc:
         print(f"获取数据失败：{exc}", file=sys.stderr)
         raise SystemExit(1) from exc
 
     if args.json:
         print(json.dumps(analysis_result, indent=2, ensure_ascii=False))
+        return
+
+    if args.watchlist:
+        print(generate_watchlist_report(analysis_result, detailed=args.detailed))
         return
 
     print(generate_report(analysis_result, detailed=args.detailed))

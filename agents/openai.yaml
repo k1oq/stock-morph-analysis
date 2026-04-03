@@ -1,0 +1,7 @@
+interface:
+  display_name: "Stock Morph Analysis"
+  short_description: "Analyze A-share stocks, boards, watchlists, and daily reviews"
+  default_prompt: "Use $stock-morph-analysis to run or extend this A-share analysis toolkit for text or JSON outputs, including single-stock reports, watchlist ranking, board analysis, daily review output, and CSV export."
+
+policy:
+  allow_implicit_invocation: true

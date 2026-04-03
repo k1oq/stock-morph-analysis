@@ -10,6 +10,9 @@
 - 量价分析：基于近 5 个交易日平均成交量计算量比
 - 均线系统：MA5 / MA10 / MA20 / MA60 与均线排列判断
 - 技术评分：趋势、动能、量价、形态四个维度综合评分
+- 自选股批量分析：支持读取 `stocks.txt`、批量汇总、按评分/涨跌幅排序、导出 CSV
+- 板块分析：支持查询板块成分股、板块涨跌幅、龙头股
+- 盘后复盘：支持涨停/跌停数据、连板股和热点板块识别
 - 双输出模式：文本报告和完整 JSON 结构
 - 异常处理：历史 K 线失败时自动降级为实时分析，并给出 `warnings`
 
@@ -33,11 +36,33 @@ python scripts/morph_analyzer.py --code 600867 --json
 
 # 指定分析天数（历史请求条数至少会补足到 120）
 python scripts/morph_analyzer.py --code 600867 --days 60
+
+# 批量分析自选股，并按评分排序
+python scripts/morph_analyzer.py --watchlist stocks.txt --sort-by score
+
+# 按涨跌幅排序并导出 CSV
+python scripts/morph_analyzer.py --watchlist stocks.txt --sort-by change --csv watchlist.csv
+
+# 分析板块/行业
+python scripts/board_analyzer.py --industry 半导体
+
+# 生成盘后复盘
+python scripts/daily_review.py --date 2026-04-03
+```
+
+`stocks.txt` 支持一行一个代码，也支持空行、注释行和逗号/空格分隔：
+
+```text
+600867
+600519
+# 银行
+000001
+300750, 601318
 ```
 
 ## 输出结构
 
-`--json` 会输出完整的分段嵌套结构，顶层包含：
+单股模式下，`--json` 会输出完整的分段嵌套结构，顶层包含：
 
 - `meta`
 - `data_status`
@@ -53,11 +78,39 @@ python scripts/morph_analyzer.py --code 600867 --days 60
 
 可参考 `templates/report_example.json`。
 
+批量模式下，`--json` 顶层包含：
+
+- `meta`
+- `codes`
+- `summary`
+- `results`
+- `failures`
+
+板块分析模式下，`--json` 顶层包含：
+
+- `meta`
+- `board`
+- `summary`
+- `leaders`
+- `top_gainers`
+- `top_losers`
+- `constituents`
+
+盘后复盘模式下，`--json` 顶层包含：
+
+- `meta`
+- `summary`
+- `limit_up`
+- `limit_down`
+- `consecutive_limit_up`
+- `strong_pool`
+- `hot_boards`
+
 ## 测试
 
 ```bash
 # 单元测试
-python -m unittest tests.test_indicators tests.test_analysis
+python -m unittest tests.test_indicators tests.test_analysis tests.test_watchlist tests.test_board_analysis tests.test_daily_review
 
 # 联网 smoke test（验证 3 只股票）
 python -m unittest tests.test_api
