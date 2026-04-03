@@ -1,6 +1,6 @@
 ---
 name: stock-morph-analysis
-description: Analyze A-share stocks, boards, and daily market review data with this repository's CLI and Python modules. Use when Codex needs to run or extend `scripts/morph_analyzer.py`, `scripts/board_analyzer.py`, or `scripts/daily_review.py`; inspect Tencent/Sina/Eastmoney market data integrations; generate text or JSON reports for a single stock, a watchlist, a board, or a trade date; identify board leaders, consecutive limit-up stocks, and hot sectors; export CSV; or validate market-analysis behavior in this codebase.
+description: Analyze A-share stocks, boards, and daily market review data with this repository's CLI and Python modules. Use when Codex needs to run or extend `scripts/morph_analyzer.py`, `scripts/board_analyzer.py`, or `scripts/daily_review.py`; inspect Tencent/Sina/Eastmoney market data integrations; generate text or JSON reports for a single stock, a watchlist, a board, or a trade date; summarize recent volume, turnover, chip-distribution, and fund-flow signals; identify board leaders, consecutive limit-up stocks, and hot sectors; export CSV; or validate market-analysis behavior in this codebase.
 ---
 
 # Stock Morph Analysis
@@ -24,11 +24,13 @@ If a future user explicitly reopens charting work, treat that as a new feature r
 - `scripts/morph_analyzer.py`: main CLI entrypoint and analysis orchestration
 - `scripts/board_analyzer.py`: board and industry analysis
 - `scripts/daily_review.py`: daily market review
+- `scripts/market_extensions.py`: Eastmoney-backed turnover, chip distribution, and fund-flow analysis
 - `scripts/tencent_api.py`: realtime quote fetcher
 - `scripts/sina_history.py`: historical K-line fetcher
 - `scripts/patterns.py`: candlestick pattern recognition
 - `scripts/indicators.py`: MA, MACD, RSI, Bollinger helpers
 - `tests/test_analysis.py`: single-stock analysis tests
+- `tests/test_market_extensions.py`: turnover, chip-distribution, and fund-flow unit tests
 - `tests/test_watchlist.py`: batch/watchlist tests
 - `tests/test_board_analysis.py`: board analysis tests
 - `tests/test_daily_review.py`: daily review tests
@@ -50,6 +52,8 @@ Typical asks that map here:
 - “分析这只股票”
 - “给我 JSON 结果”
 - “看一下 600867”
+- “看看这只股票的换手率和筹码”
+- “补一下主力资金流和近期量价”
 
 Use watchlist mode when the user provides multiple stock codes, a file such as `stocks.txt`, wants ranking, or wants CSV export.
 
@@ -117,6 +121,26 @@ Example:
 ## Skill Usage Recipes
 
 Use these recipes for the newly added workflows so another agent can act without guessing.
+
+### Single-Stock Deep Analysis
+
+When the user asks for recent volume, turnover, chip distribution, cost ranges, or main fund flow on one stock:
+
+1. Start with:
+
+```bash
+python scripts/morph_analyzer.py --code 600867 --detailed
+python scripts/morph_analyzer.py --code 600867 --json
+```
+
+2. Prefer `--detailed` when the user wants a readable report.
+3. Prefer `--json` when the user wants structured fields for downstream use.
+4. In the response, summarize:
+   `volume_profile`,
+   `turnover_analysis`,
+   `chip_distribution`,
+   `fund_flow`.
+5. If external data partially fails, keep the single-stock result and surface the affected `data_status` keys and `warnings`.
 
 ### Watchlist Analysis
 
@@ -198,16 +222,19 @@ Run focused unit tests after code changes:
 
 ```bash
 python -m unittest tests.test_analysis -v
+python -m unittest tests.test_market_extensions -v
 python -m unittest tests.test_watchlist -v
 python -m unittest tests.test_board_analysis -v
 python -m unittest tests.test_daily_review -v
-python -m unittest tests.test_indicators tests.test_analysis tests.test_watchlist tests.test_board_analysis tests.test_daily_review -v
+python -m unittest tests.test_indicators tests.test_market_extensions tests.test_analysis tests.test_watchlist tests.test_board_analysis tests.test_daily_review -v
 ```
 
 Run a real CLI smoke test when the change touches arguments, rendering, sorting, or export behavior:
 
 ```bash
 python scripts/morph_analyzer.py --help
+python scripts/morph_analyzer.py --code 600867 --detailed
+python scripts/morph_analyzer.py --code 600867 --json
 python scripts/morph_analyzer.py --watchlist stocks.txt --sort-by score
 python scripts/morph_analyzer.py --watchlist stocks.txt --sort-by score --csv watchlist.csv
 python scripts/board_analyzer.py --industry 半导体

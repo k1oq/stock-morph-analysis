@@ -2,14 +2,18 @@
   "meta": {
     "code": "600867",
     "name": "通化东宝",
-    "generated_at": "2026-04-02T18:00:00",
+    "generated_at": "2026-04-03T18:00:00",
     "analysis_days": 30,
     "history_bars": 120
   },
   "data_status": {
     "realtime": "complete",
     "history": "complete",
-    "indicators": "complete"
+    "indicators": "complete",
+    "volume_profile": "complete",
+    "turnover": "complete",
+    "chip_distribution": "complete",
+    "fund_flow": "complete"
   },
   "warnings": [],
   "realtime": {
@@ -25,16 +29,164 @@
     "volume_wan_hands": 104.39,
     "amount_wan_yuan": 101179.01,
     "amount_yi_yuan": 10.12,
-    "timestamp": "2026-04-02 16:14:28"
+    "turnover_rate": 3.84,
+    "timestamp": "2026-04-03 15:00:00"
   },
   "kline_pattern": {
-    "single": {},
-    "engulfing": {}
+    "single": {
+      "type": "中阳线",
+      "body": 0.12,
+      "upper_shadow": 0.11,
+      "lower_shadow": 0.12,
+      "signal": "多头占优"
+    },
+    "engulfing": {
+      "type": "无",
+      "signal": "",
+      "reliability": "低",
+      "score": 0.0,
+      "bias": "neutral"
+    }
   },
-  "volume_price": {},
-  "moving_averages": {},
-  "indicators": {},
-  "score": {},
-  "support_resistance": {},
-  "advice": {}
+  "volume_price": {
+    "volume_ratio": 1.42,
+    "relation": "量增价升",
+    "signal": "偏多",
+    "description": "放量上涨，趋势延续概率较高",
+    "score": 0.8,
+    "icon": "bullish"
+  },
+  "volume_profile": {
+    "available": true,
+    "latest_date": "2026-04-03",
+    "latest_volume_wan_hands": 104.39,
+    "average_volume_wan_hands_5": 73.28,
+    "average_volume_wan_hands_20": 68.51,
+    "volume_ratio_5": 1.42,
+    "volume_ratio_20": 1.52,
+    "amount_yi_yuan": 10.12,
+    "volume_state": "明显放量",
+    "signal": "偏多",
+    "description": "近端量能显著放大，价格同步上行，短线资金参与度较高。"
+  },
+  "turnover_analysis": {
+    "available": true,
+    "latest_date": "2026-04-03",
+    "latest_turnover_rate": 3.84,
+    "average_turnover_rate_5": 2.76,
+    "average_turnover_rate_20": 2.31,
+    "turnover_ratio_5": 1.39,
+    "turnover_ratio_20": 1.66,
+    "activity_level": "活跃",
+    "signal": "偏多",
+    "description": "换手率抬升且价格走强，筹码交换积极，短线弹性较好。"
+  },
+  "chip_distribution": {
+    "available": true,
+    "latest_date": "2026-04-03",
+    "profit_ratio": 63.4,
+    "average_cost": 9.22,
+    "distance_to_average_cost_percent": 5.75,
+    "cost_range_70": {
+      "low": 8.91,
+      "high": 9.54,
+      "concentration": 3.41
+    },
+    "cost_range_90": {
+      "low": 8.65,
+      "high": 9.78,
+      "concentration": 6.13
+    },
+    "price_position": "位于 90% 成本区间内",
+    "signal": "偏多",
+    "description": "现价位于主要成本上方，获利盘占比较高且筹码相对集中。"
+  },
+  "fund_flow": {
+    "available": true,
+    "latest_date": "2026-04-03",
+    "close": 9.75,
+    "change_percent": 1.67,
+    "main_net_inflow_yi_yuan": 0.52,
+    "main_net_inflow_ratio": 6.8,
+    "super_large_net_inflow_yi_yuan": 0.31,
+    "large_net_inflow_yi_yuan": 0.18,
+    "medium_net_inflow_yi_yuan": -0.09,
+    "small_net_inflow_yi_yuan": -0.12,
+    "cumulative_main_net_inflow_3d_yi_yuan": 1.14,
+    "cumulative_main_net_inflow_5d_yi_yuan": 1.73,
+    "signal": "偏多",
+    "description": "主力资金最近 5 日维持净流入，且当日净占比处于较高水平。"
+  },
+  "moving_averages": {
+    "ma5": {
+      "value": 9.46,
+      "distance_percent": 3.07
+    },
+    "ma10": {
+      "value": 9.21,
+      "distance_percent": 5.86
+    },
+    "ma20": {
+      "value": 8.93,
+      "distance_percent": 9.18
+    },
+    "ma60": {
+      "value": 8.42,
+      "distance_percent": 15.8
+    },
+    "arrangement": {
+      "name": "多头排列",
+      "signal": "趋势偏强"
+    }
+  },
+  "indicators": {
+    "macd": {
+      "dif": 0.26,
+      "dea": 0.18,
+      "macd": 0.16,
+      "signal": "金叉"
+    },
+    "rsi": {
+      "value": 63.8,
+      "signal": "强势区"
+    },
+    "bollinger": {
+      "upper": 9.88,
+      "middle": 9.21,
+      "lower": 8.54,
+      "bandwidth": 14.55,
+      "position": "中轨上方"
+    }
+  },
+  "score": {
+    "total": 2.75,
+    "signal": "偏多",
+    "components": {
+      "trend": 1.0,
+      "momentum": 0.65,
+      "volume_price": 0.8,
+      "pattern": 0.3
+    }
+  },
+  "support_resistance": {
+    "resistance": [
+      {
+        "price": 9.86,
+        "source": "今日最高"
+      }
+    ],
+    "support": [
+      {
+        "price": 9.51,
+        "source": "今日最低"
+      }
+    ]
+  },
+  "advice": {
+    "action": "持股观察",
+    "stop_loss": 9.51,
+    "target": 9.86,
+    "signal": "偏多",
+    "rationale": "技术面偏暖，但仍需观察量能持续性。"
+  }
 }
