@@ -123,6 +123,7 @@ def get_realtime_data(
         amount_wan_yuan = _safe_float(fields[57] or fields[37])
         high_price = _safe_float(fields[33])
         low_price = _safe_float(fields[34])
+        turnover_rate = _safe_float(fields[38]) if len(fields) > 38 else None
 
         change_amount = price - prev_close if prev_close else 0.0
         change_percent = (change_amount / prev_close * 100) if prev_close else 0.0
@@ -144,6 +145,7 @@ def get_realtime_data(
             "amount": amount_wan_yuan,
             "amount_wan_yuan": amount_wan_yuan,
             "amount_yi_yuan": amount_wan_yuan / 10000 if amount_wan_yuan else 0.0,
+            "turnover_rate": turnover_rate,
             "timestamp": _format_timestamp(fields[30]),
         }
         return result

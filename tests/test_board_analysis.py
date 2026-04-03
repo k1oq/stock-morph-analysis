@@ -25,28 +25,28 @@ from board_analyzer import (
 def sample_boards() -> list[dict]:
     return [
         {
-            "code": "BK1036",
+            "code": "881121",
             "name": "半导体",
             "latest": 1234.56,
             "change_percent": 3.28,
-            "change_amount": 39.24,
-            "market_cap": 1000000000,
+            "change_amount": None,
+            "market_cap": None,
             "up_count": 120,
             "down_count": 40,
-            "board_type": "concept",
-            "board_type_name": "概念板块",
-        },
-        {
-            "code": "BK1325",
-            "name": "半导体材料",
-            "latest": 998.0,
-            "change_percent": 1.21,
-            "change_amount": 11.95,
-            "market_cap": 500000000,
-            "up_count": 12,
-            "down_count": 5,
             "board_type": "industry",
             "board_type_name": "行业板块",
+        },
+        {
+            "code": "309121",
+            "name": "AI PC",
+            "latest": None,
+            "change_percent": None,
+            "change_amount": None,
+            "market_cap": None,
+            "up_count": None,
+            "down_count": None,
+            "board_type": "concept",
+            "board_type_name": "概念板块",
         },
     ]
 
@@ -59,7 +59,7 @@ def sample_constituents() -> list[dict]:
             "price": 241.0,
             "change_percent": 11.29,
             "change_amount": 24.45,
-            "volume_hands": 83452,
+            "volume_hands": None,
             "amount": 1992347303,
             "turnover_rate": 4.73,
             "volume_ratio": 3.74,
@@ -72,7 +72,7 @@ def sample_constituents() -> list[dict]:
             "price": 46.58,
             "change_percent": 9.14,
             "change_amount": 3.90,
-            "volume_hands": 86937,
+            "volume_hands": None,
             "amount": 406496083,
             "turnover_rate": 6.00,
             "volume_ratio": 10.80,
@@ -85,7 +85,7 @@ def sample_constituents() -> list[dict]:
             "price": 10.02,
             "change_percent": -3.12,
             "change_amount": -0.32,
-            "volume_hands": 10234,
+            "volume_hands": None,
             "amount": 102300000,
             "turnover_rate": 1.20,
             "volume_ratio": 0.88,
@@ -98,7 +98,7 @@ def sample_constituents() -> list[dict]:
 class BoardAnalysisTests(unittest.TestCase):
     def test_match_board_prefers_exact_match(self) -> None:
         result = match_board("半导体", sample_boards())
-        self.assertEqual(result["code"], "BK1036")
+        self.assertEqual(result["code"], "881121")
 
     @patch("board_analyzer.fetch_board_constituents")
     @patch("board_analyzer.fetch_board_list")
@@ -112,7 +112,7 @@ class BoardAnalysisTests(unittest.TestCase):
 
         result = build_board_analysis_result("半导体", top_n=2)
 
-        self.assertEqual(result["board"]["code"], "BK1036")
+        self.assertEqual(result["board"]["code"], "881121")
         self.assertEqual(result["summary"]["constituent_count"], 3)
         self.assertEqual(result["summary"]["advancing_count"], 2)
         self.assertEqual(result["summary"]["declining_count"], 1)

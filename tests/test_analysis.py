@@ -39,6 +39,7 @@ def sample_realtime() -> dict:
         "volume_shares": 104394300.0,
         "amount_wan_yuan": 101179.01,
         "amount_yi_yuan": 10.12,
+        "turnover_rate": 4.69,
         "timestamp": "2026-04-03 15:00:00",
     }
 
@@ -56,32 +57,6 @@ def sample_history_rows(count: int = 40) -> list[dict]:
                 "close": 8.90 + day * 0.03,
                 "volume_shares": volume_shares,
                 "volume_hands": volume_shares / 100,
-            }
-        )
-    return rows
-
-
-def sample_market_history_rows(count: int = 80) -> list[dict]:
-    rows = []
-    for day in range(1, count + 1):
-        volume_shares = 70000000 + day * 600000
-        amount_yuan = 800000000 + day * 12000000
-        rows.append(
-            {
-                "date": f"2026-02-{day:02d}" if day <= 28 else f"2026-03-{day - 28:02d}",
-                "open": 8.70 + day * 0.02,
-                "close": 8.85 + day * 0.02,
-                "high": 9.05 + day * 0.02,
-                "low": 8.55 + day * 0.02,
-                "volume_shares": volume_shares,
-                "volume_hands": volume_shares / 100,
-                "amount_yuan": amount_yuan,
-                "amount_wan_yuan": amount_yuan / 10000,
-                "amount_yi_yuan": amount_yuan / 100000000,
-                "amplitude": 3.5,
-                "change_percent": 1.2,
-                "change_amount": 0.12,
-                "turnover_rate": 2.5 + day * 0.03,
             }
         )
     return rows
@@ -151,19 +126,18 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(result["support"][0]["price"], 9.51)
 
     @patch("morph_analyzer.fetch_individual_fund_flow_history")
-    @patch("morph_analyzer.fetch_market_activity_history")
     @patch("morph_analyzer.get_history_kline")
     @patch("morph_analyzer.get_realtime_data")
     def test_build_analysis_result_degrades_when_data_sources_fail(
         self,
         mock_realtime,
         mock_history,
-        mock_market_history,
         mock_fund_flow,
     ) -> None:
-        mock_realtime.return_value = sample_realtime()
+        degraded_realtime = sample_realtime()
+        degraded_realtime["turnover_rate"] = None
+        mock_realtime.return_value = degraded_realtime
         mock_history.side_effect = RuntimeError("history unavailable")
-        mock_market_history.side_effect = RuntimeError("eastmoney unavailable")
         mock_fund_flow.side_effect = RuntimeError("fund flow unavailable")
 
         result = build_analysis_result("600867")
@@ -172,29 +146,24 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(result["data_status"]["indicators"], "degraded")
         self.assertEqual(result["data_status"]["volume_profile"], "degraded")
         self.assertEqual(result["data_status"]["turnover"], "degraded")
-        self.assertEqual(result["data_status"]["chip_distribution"], "degraded")
         self.assertEqual(result["data_status"]["fund_flow"], "degraded")
-        self.assertGreaterEqual(len(result["warnings"]), 3)
+        self.assertGreaterEqual(len(result["warnings"]), 2)
         self.assertIsNone(result["moving_averages"]["ma5"]["value"])
         self.assertFalse(result["volume_profile"]["available"])
         self.assertFalse(result["turnover_analysis"]["available"])
-        self.assertFalse(result["chip_distribution"]["available"])
         self.assertFalse(result["fund_flow"]["available"])
 
     @patch("morph_analyzer.fetch_individual_fund_flow_history")
-    @patch("morph_analyzer.fetch_market_activity_history")
     @patch("morph_analyzer.get_history_kline")
     @patch("morph_analyzer.get_realtime_data")
     def test_build_analysis_result_includes_market_extensions(
         self,
         mock_realtime,
         mock_history,
-        mock_market_history,
         mock_fund_flow,
     ) -> None:
         mock_realtime.return_value = sample_realtime()
         mock_history.return_value = sample_history_rows()
-        mock_market_history.return_value = sample_market_history_rows()
         mock_fund_flow.return_value = sample_fund_flow_rows()
 
         result = build_analysis_result("600867")
@@ -203,28 +172,24 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(result["data_status"]["indicators"], "complete")
         self.assertEqual(result["data_status"]["volume_profile"], "complete")
         self.assertEqual(result["data_status"]["turnover"], "complete")
-        self.assertEqual(result["data_status"]["chip_distribution"], "complete")
         self.assertEqual(result["data_status"]["fund_flow"], "complete")
         self.assertTrue(result["volume_profile"]["available"])
         self.assertTrue(result["turnover_analysis"]["available"])
-        self.assertTrue(result["chip_distribution"]["available"])
         self.assertTrue(result["fund_flow"]["available"])
         self.assertEqual(result["realtime"]["turnover_rate"], result["turnover_analysis"]["latest_turnover_rate"])
+        self.assertNotIn("chip_distribution", result)
 
     @patch("morph_analyzer.fetch_individual_fund_flow_history")
-    @patch("morph_analyzer.fetch_market_activity_history")
     @patch("morph_analyzer.get_history_kline")
     @patch("morph_analyzer.get_realtime_data")
     def test_generate_report_contains_new_sections(
         self,
         mock_realtime,
         mock_history,
-        mock_market_history,
         mock_fund_flow,
     ) -> None:
         mock_realtime.return_value = sample_realtime()
         mock_history.return_value = sample_history_rows()
-        mock_market_history.return_value = sample_market_history_rows()
         mock_fund_flow.return_value = sample_fund_flow_rows()
 
         result = build_analysis_result("600867")
@@ -233,9 +198,9 @@ class AnalysisTests(unittest.TestCase):
         self.assertIn("【实时行情】", report)
         self.assertIn("【近期量能】", report)
         self.assertIn("【换手率】", report)
-        self.assertIn("【筹码分布】", report)
         self.assertIn("【资金流向】", report)
-        self.assertIn("主力净流入", report)
+        self.assertIn("当前换手率", report)
+        self.assertNotIn("【筹码分布】", report)
 
 
 if __name__ == "__main__":

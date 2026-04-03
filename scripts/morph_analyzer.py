@@ -21,12 +21,10 @@ from typing import Dict, List, Optional
 
 from indicators import calc_bollinger, calc_ma, calc_macd, calc_rsi, get_rsi_signal
 from market_extensions import (
-    build_chip_distribution_analysis,
     build_fund_flow_analysis,
     build_turnover_analysis,
     build_volume_profile,
     fetch_individual_fund_flow_history,
-    fetch_market_activity_history,
 )
 from patterns import identify_engulfing_pattern, identify_single_pattern
 from sina_history import get_history_kline
@@ -665,7 +663,6 @@ def build_analysis_result(code: str, days: int = 30) -> Dict:
     realtime = get_realtime_data(code, raise_on_error=True)
     warnings: List[str] = []
     history_rows: List[Dict] = []
-    market_history_rows: List[Dict] = []
     fund_flow_rows: List[Dict] = []
 
     data_status = {
@@ -674,7 +671,6 @@ def build_analysis_result(code: str, days: int = 30) -> Dict:
         "indicators": "degraded",
         "volume_profile": "degraded",
         "turnover": "degraded",
-        "chip_distribution": "degraded",
         "fund_flow": "degraded",
     }
 
@@ -713,15 +709,6 @@ def build_analysis_result(code: str, days: int = 30) -> Dict:
         warnings.append("历史 K 线数量不足，部分指标无法计算。")
 
     try:
-        market_history_rows = fetch_market_activity_history(
-            code,
-            days=max(days, 120),
-            raise_on_error=True,
-        )
-    except RuntimeError as exc:
-        warnings.append(f"换手率与筹码分布获取失败，已跳过扩展分析：{exc}")
-
-    try:
         fund_flow_rows = fetch_individual_fund_flow_history(
             code,
             days=max(days, 30),
@@ -734,13 +721,9 @@ def build_analysis_result(code: str, days: int = 30) -> Dict:
     if volume_profile["available"]:
         data_status["volume_profile"] = "complete"
 
-    turnover_analysis = build_turnover_analysis(realtime, market_history_rows)
+    turnover_analysis = build_turnover_analysis(realtime)
     if turnover_analysis["available"]:
         data_status["turnover"] = "complete"
-
-    chip_distribution = build_chip_distribution_analysis(realtime["price"], market_history_rows)
-    if chip_distribution["available"]:
-        data_status["chip_distribution"] = "complete"
 
     fund_flow = build_fund_flow_analysis(fund_flow_rows)
     if fund_flow["available"]:
@@ -789,7 +772,6 @@ def build_analysis_result(code: str, days: int = 30) -> Dict:
         "volume_price": volume_price,
         "volume_profile": volume_profile,
         "turnover_analysis": turnover_analysis,
-        "chip_distribution": chip_distribution,
         "fund_flow": fund_flow,
         "moving_averages": moving_averages,
         "indicators": indicators,
@@ -819,7 +801,6 @@ def generate_report(analysis_result: Dict, detailed: bool = False) -> str:
     volume_price = analysis_result["volume_price"]
     volume_profile = analysis_result["volume_profile"]
     turnover_analysis = analysis_result["turnover_analysis"]
-    chip_distribution = analysis_result["chip_distribution"]
     fund_flow = analysis_result["fund_flow"]
     moving_averages = analysis_result["moving_averages"]
     indicators = analysis_result["indicators"]
@@ -886,39 +867,12 @@ def generate_report(analysis_result: Dict, detailed: bool = False) -> str:
 
     lines.append("【换手率】")
     if turnover_analysis["available"]:
-        lines.append(
-            f"最新换手率：{turnover_analysis['latest_turnover_rate']:.2f}%  "
-            f"近5日均值：{turnover_analysis['average_turnover_rate_5']:.2f}%  "
-            f"近20日均值：{turnover_analysis['average_turnover_rate_20']:.2f}%"
-        )
-        lines.append(
-            f"活跃度：{turnover_analysis['activity_level']}  "
-            f"5日比值：{turnover_analysis['turnover_ratio_5']:.2f}  "
-            f"20日比值：{turnover_analysis['turnover_ratio_20']:.2f}"
-        )
+        lines.append(f"当前换手率：{turnover_analysis['latest_turnover_rate']:.2f}%")
+        lines.append(f"活跃度：{turnover_analysis['activity_level']}")
         lines.append(f"解读：{turnover_analysis['description']}")
     else:
         lines.append("换手率：不可用")
         lines.append(f"解读：{turnover_analysis['description']}")
-    lines.append("")
-
-    lines.append("【筹码分布】")
-    if chip_distribution["available"]:
-        cost_range_90 = chip_distribution["cost_range_90"]
-        lines.append(
-            f"平均成本：{chip_distribution['average_cost']:.2f} 元  "
-            f"获利盘：{chip_distribution['profit_ratio']:.2f}%  "
-            f"现价相对成本：{chip_distribution['distance_to_average_cost_percent']:+.2f}%"
-        )
-        lines.append(
-            f"90%成本区：{cost_range_90['low']:.2f} - {cost_range_90['high']:.2f} 元  "
-            f"集中度：{cost_range_90['concentration']:.2f}%"
-        )
-        lines.append(f"位置：{chip_distribution['price_position']}")
-        lines.append(f"解读：{chip_distribution['description']}")
-    else:
-        lines.append("筹码分布：不可用")
-        lines.append(f"解读：{chip_distribution['description']}")
     lines.append("")
 
     lines.append("【资金流向】")
