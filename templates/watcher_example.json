@@ -1,5 +1,12 @@
 {
-  "openclaw_command": "openclaw",
+  "openclaw": {
+    "base_url": "http://127.0.0.1:18789",
+    "token": "replace-with-your-openclaw-hook-token",
+    "endpoint": "agent",
+    "wake_mode": "next-heartbeat",
+    "name": "Stock Watcher",
+    "deliver": true
+  },
   "event_dir": "runtime/events",
   "watchers": [
     {

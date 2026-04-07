@@ -2,7 +2,7 @@
 
 基于腾讯财经实时行情、新浪财经历史 K 线、同花顺板块页面和东方财富资金流数据的 A 股分析工具。
 当前支持单股分析、自选股批量分析、板块分析和盘后复盘，输出文本报告或结构化 JSON。
-另外支持股价阈值监控：到达指定价位后生成事件文件，并调用 `openclaw` 回调。
+另外支持股价阈值监控：到达指定价位后生成事件文件，并通过 `openclaw` 官方 webhook 回调。
 
 ## 功能
 
@@ -15,7 +15,7 @@
 - 自选股批量分析：支持 `--watchlist`、评分/涨跌幅排序、CSV 导出
 - 板块分析：基于同花顺板块页面获取成分股、整体涨跌幅、龙头股
 - 盘后复盘：涨停/跌停、连板股、热点板块识别
-- 股价监控告警：达到目标价后写入事件 JSON 并调用 `openclaw`
+- 股价监控告警：达到目标价后写入事件 JSON 并调用 `openclaw` webhook
 - 双输出模式：文本报告和 JSON
 
 ## 安装
@@ -72,9 +72,19 @@ python scripts/price_watcher.py --config watcher.json --interval 30
 
 监控配置字段：
 
-- `openclaw_command`：触发后执行的命令，默认 `openclaw`
+- `openclaw`：`openclaw` webhook 配置
 - `event_dir`：事件 JSON 输出目录，默认 `runtime/events`
 - `watchers`：监控规则数组
+
+`openclaw` 字段：
+
+- `base_url`：`openclaw` Gateway 地址，例如 `http://127.0.0.1:18789`
+- `token`：webhook token，放在 `x-openclaw-token` 请求头
+- `endpoint`：`agent` 或 `wake`，默认 `agent`
+- `wake_mode`：`now` 或 `next-heartbeat`，默认 `next-heartbeat`
+- `name`：`agent` 模式下展示名称，默认 `Stock Watcher`
+- `deliver`：是否由 `openclaw` 继续向用户通道投递
+- `channel` / `to` / `model` / `thinking`：按需透传给 `openclaw /hooks/agent`
 
 每条规则字段：
 

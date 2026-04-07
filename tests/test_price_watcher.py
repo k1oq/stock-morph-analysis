@@ -20,7 +20,9 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from price_watcher import (
     DEFAULT_COOLDOWN_SECONDS,
+    OpenClawHookConfig,
     WatcherRule,
+    build_openclaw_payload,
     check_rule,
     load_config,
     load_state,
@@ -45,6 +47,10 @@ class PriceWatcherTests(unittest.TestCase):
             config_path.write_text(
                 json.dumps(
                     {
+                        "openclaw": {
+                            "base_url": "http://127.0.0.1:18789",
+                            "token": "secret-token"
+                        },
                         "watchers": [
                             {
                                 "id": "moutai-gte",
@@ -61,21 +67,48 @@ class PriceWatcherTests(unittest.TestCase):
 
             config = load_config(str(config_path))
 
-        self.assertEqual(config["openclaw_command"], ["openclaw"])
+        self.assertEqual(config["openclaw"].base_url, "http://127.0.0.1:18789")
+        self.assertEqual(config["openclaw"].endpoint, "agent")
         self.assertEqual(config["watchers"][0].cooldown_seconds, DEFAULT_COOLDOWN_SECONDS)
+
+    def test_build_openclaw_payload_uses_agent_endpoint_shape(self) -> None:
+        hook_config = OpenClawHookConfig(
+            base_url="http://127.0.0.1:18789",
+            token="secret-token",
+            endpoint="agent",
+            wake_mode="next-heartbeat",
+        )
+        event = {
+            "rule_id": "moutai-gte",
+            "name": "贵州茅台",
+            "code": "600519",
+            "current_price": 1688.0,
+            "target_price": 1680.0,
+            "direction": "gte",
+            "timestamp": "2026-04-07 10:30:00",
+            "triggered_at": "2026-04-07T10:35:00",
+        }
+
+        payload = build_openclaw_payload(event, hook_config, Path("runtime/events/event.json"))
+
+        self.assertEqual(payload["name"], "Stock Watcher")
+        self.assertEqual(payload["wakeMode"], "next-heartbeat")
+        self.assertIn("message", payload)
+        self.assertIn("event_file=runtime", payload["message"])
 
     def test_check_rule_triggers_gte_and_writes_event(self) -> None:
         rule = WatcherRule(id="moutai-gte", code="600519", target_price=1680.0, direction="gte")
         state = {"rules": {}}
         now = datetime(2026, 4, 7, 10, 35, 0)
+        hook_config = OpenClawHookConfig(base_url="http://127.0.0.1:18789", token="secret-token")
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch("price_watcher.invoke_openclaw") as mock_invoke:
+            with patch("price_watcher.dispatch_openclaw_event") as mock_dispatch:
                 event = check_rule(
                     rule=rule,
                     quote=sample_quote(price=1688.0),
                     state=state,
-                    command=["openclaw"],
+                    hook_config=hook_config,
                     event_dir=Path(temp_dir),
                     now=now,
                 )
@@ -86,22 +119,24 @@ class PriceWatcherTests(unittest.TestCase):
             files = list(Path(temp_dir).glob("*.json"))
             payload = json.loads(files[0].read_text(encoding="utf-8"))
 
-        mock_invoke.assert_called_once()
+        mock_dispatch.assert_called_once()
         self.assertEqual(len(files), 1)
         self.assertEqual(payload["current_price"], 1688.0)
         self.assertEqual(state["rules"]["moutai-gte"]["last_triggered_at"], now.isoformat(timespec="seconds"))
+        self.assertEqual(state["rules"]["moutai-gte"]["last_delivery_status"], "delivered")
 
     def test_check_rule_triggers_lte(self) -> None:
         rule = WatcherRule(id="pingan-lte", code="000001", target_price=10.5, direction="lte")
         state = {"rules": {}}
+        hook_config = OpenClawHookConfig(base_url="http://127.0.0.1:18789", token="secret-token")
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch("price_watcher.invoke_openclaw"):
+            with patch("price_watcher.dispatch_openclaw_event"):
                 event = check_rule(
                     rule=rule,
                     quote=sample_quote(code="000001", price=10.2),
                     state=state,
-                    command=["openclaw"],
+                    hook_config=hook_config,
                     event_dir=Path(temp_dir),
                     now=datetime(2026, 4, 7, 10, 36, 0),
                 )
@@ -112,24 +147,27 @@ class PriceWatcherTests(unittest.TestCase):
     def test_check_rule_does_not_trigger_when_price_not_met(self) -> None:
         rule = WatcherRule(id="moutai-gte", code="600519", target_price=1700.0, direction="gte")
         state = {"rules": {}}
+        hook_config = OpenClawHookConfig(base_url="http://127.0.0.1:18789", token="secret-token")
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch("price_watcher.invoke_openclaw") as mock_invoke:
+            with patch("price_watcher.dispatch_openclaw_event") as mock_dispatch:
                 event = check_rule(
                     rule=rule,
                     quote=sample_quote(price=1688.0),
                     state=state,
-                    command=["openclaw"],
+                    hook_config=hook_config,
                     event_dir=Path(temp_dir),
                     now=datetime(2026, 4, 7, 10, 37, 0),
                 )
 
         self.assertIsNone(event)
-        mock_invoke.assert_not_called()
+        mock_dispatch.assert_not_called()
+        self.assertEqual(state["rules"]["moutai-gte"]["last_delivery_status"], "not_matched")
 
     def test_check_rule_respects_cooldown(self) -> None:
         rule = WatcherRule(id="moutai-gte", code="600519", target_price=1680.0, direction="gte", cooldown_seconds=300)
         now = datetime(2026, 4, 7, 10, 40, 0)
+        hook_config = OpenClawHookConfig(base_url="http://127.0.0.1:18789", token="secret-token")
         state = {
             "rules": {
                 "moutai-gte": {
@@ -139,22 +177,24 @@ class PriceWatcherTests(unittest.TestCase):
         }
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch("price_watcher.invoke_openclaw") as mock_invoke:
+            with patch("price_watcher.dispatch_openclaw_event") as mock_dispatch:
                 event = check_rule(
                     rule=rule,
                     quote=sample_quote(price=1688.0),
                     state=state,
-                    command=["openclaw"],
+                    hook_config=hook_config,
                     event_dir=Path(temp_dir),
                     now=now,
                 )
 
         self.assertIsNone(event)
-        mock_invoke.assert_not_called()
+        mock_dispatch.assert_not_called()
+        self.assertEqual(state["rules"]["moutai-gte"]["last_delivery_status"], "cooldown")
 
     def test_check_rule_allows_retrigger_after_cooldown(self) -> None:
         rule = WatcherRule(id="moutai-gte", code="600519", target_price=1680.0, direction="gte", cooldown_seconds=300)
         now = datetime(2026, 4, 7, 10, 45, 0)
+        hook_config = OpenClawHookConfig(base_url="http://127.0.0.1:18789", token="secret-token")
         state = {
             "rules": {
                 "moutai-gte": {
@@ -164,29 +204,29 @@ class PriceWatcherTests(unittest.TestCase):
         }
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch("price_watcher.invoke_openclaw") as mock_invoke:
+            with patch("price_watcher.dispatch_openclaw_event") as mock_dispatch:
                 event = check_rule(
                     rule=rule,
                     quote=sample_quote(price=1688.0),
                     state=state,
-                    command=["openclaw"],
+                    hook_config=hook_config,
                     event_dir=Path(temp_dir),
                     now=now,
                 )
 
         self.assertIsNotNone(event)
-        mock_invoke.assert_called_once()
+        mock_dispatch.assert_called_once()
 
     @patch("price_watcher.get_realtime_data")
-    @patch("price_watcher.invoke_openclaw")
-    def test_run_watch_cycle_collects_partial_errors(self, mock_invoke, mock_quote) -> None:
+    @patch("price_watcher.dispatch_openclaw_event")
+    def test_run_watch_cycle_collects_partial_errors(self, mock_dispatch, mock_quote) -> None:
         mock_quote.side_effect = [
             sample_quote(code="600519", price=1688.0),
             RuntimeError("network unavailable"),
         ]
         with tempfile.TemporaryDirectory() as temp_dir:
             config = {
-                "openclaw_command": ["openclaw"],
+                "openclaw": OpenClawHookConfig(base_url="http://127.0.0.1:18789", token="secret-token"),
                 "event_dir": Path(temp_dir),
                 "watchers": [
                     WatcherRule(id="moutai-gte", code="600519", target_price=1680.0, direction="gte"),
@@ -201,7 +241,7 @@ class PriceWatcherTests(unittest.TestCase):
         self.assertEqual(len(result["triggered"]), 1)
         self.assertEqual(len(result["errors"]), 1)
         self.assertEqual(result["errors"][0]["code"], "000001")
-        mock_invoke.assert_called_once()
+        mock_dispatch.assert_called_once()
 
     def test_load_state_resets_when_file_is_corrupted(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
