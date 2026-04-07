@@ -1,0 +1,22 @@
+{
+  "openclaw_command": "openclaw",
+  "event_dir": "runtime/events",
+  "watchers": [
+    {
+      "id": "moutai-gte-1680",
+      "code": "600519",
+      "target_price": 1680,
+      "direction": "gte",
+      "enabled": true,
+      "cooldown_seconds": 300
+    },
+    {
+      "id": "pingan-lte-10_50",
+      "code": "000001",
+      "target_price": 10.5,
+      "direction": "lte",
+      "enabled": true,
+      "cooldown_seconds": 300
+    }
+  ]
+}
