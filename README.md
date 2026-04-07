@@ -85,6 +85,7 @@ python scripts/price_watcher.py --config watcher.json --interval 30
 - `name`：`agent` 模式下展示名称，默认 `Stock Watcher`
 - `deliver`：是否由 `openclaw` 继续向用户通道投递
 - `channel` / `to` / `model` / `thinking`：按需透传给 `openclaw /hooks/agent`
+- webhook 请求不主动设置超时时间，由运行环境自行控制
 
 每条规则字段：
 

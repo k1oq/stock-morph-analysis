@@ -52,7 +52,6 @@ class OpenClawHookConfig:
     to: Optional[str] = None
     model: Optional[str] = None
     thinking: Optional[str] = None
-    timeout_seconds: int = 10
 
 
 def ensure_directory(path: Path) -> None:
@@ -130,10 +129,6 @@ def parse_openclaw_config(raw_config: Any) -> OpenClawHookConfig:
     if wake_mode not in {"now", "next-heartbeat"}:
         raise ValueError("openclaw.wake_mode 必须是 now 或 next-heartbeat")
 
-    timeout_seconds = _require_int(raw_config.get("timeout_seconds", 10), "openclaw.timeout_seconds")
-    if timeout_seconds <= 0:
-        raise ValueError("openclaw.timeout_seconds 必须大于 0")
-
     deliver = raw_config.get("deliver")
     if deliver is not None and not isinstance(deliver, bool):
         raise ValueError("openclaw.deliver 必须是布尔值")
@@ -156,7 +151,6 @@ def parse_openclaw_config(raw_config: Any) -> OpenClawHookConfig:
         to=optional_fields.get("to"),
         model=optional_fields.get("model"),
         thinking=optional_fields.get("thinking"),
-        timeout_seconds=timeout_seconds,
     )
 
 
@@ -319,7 +313,6 @@ def send_openclaw_webhook(hook_config: OpenClawHookConfig, event: Dict[str, Any]
             url,
             headers=headers,
             json=payload,
-            timeout=hook_config.timeout_seconds,
         )
     except requests.RequestException as exc:
         raise RuntimeError(f"openclaw webhook 请求失败: {exc}") from exc

@@ -48,14 +48,13 @@ def _normalize_history_row(raw_row: Dict) -> Optional[Dict]:
 def _request_json(
     url: str,
     retries: int = 3,
-    timeout: int = 5,
     raise_on_error: bool = False,
 ) -> Optional[List[Dict]]:
     last_error = "未知错误"
 
     for attempt in range(retries):
         try:
-            response = requests.get(url, headers=DEFAULT_HEADERS, timeout=timeout)
+            response = requests.get(url, headers=DEFAULT_HEADERS)
             response.raise_for_status()
             payload = response.json()
             if payload is None:
@@ -78,7 +77,6 @@ def get_history_kline(
     scale: int = 240,
     datalen: int = 120,
     retries: int = 3,
-    timeout: int = 5,
     raise_on_error: bool = False,
 ) -> Optional[List[Dict]]:
     """
@@ -101,7 +99,7 @@ def get_history_kline(
         f"CN_MarketData.getKLineData?symbol={symbol}&scale={scale}&datalen={length}"
     )
 
-    payload = _request_json(url, retries=retries, timeout=timeout, raise_on_error=raise_on_error)
+    payload = _request_json(url, retries=retries, raise_on_error=raise_on_error)
     if payload is None:
         return None
 

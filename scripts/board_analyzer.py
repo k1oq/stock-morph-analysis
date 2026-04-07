@@ -71,14 +71,13 @@ def _safe_float(value: object, default: float = 0.0) -> float:
 def _request_text(
     url: str,
     retries: int = 4,
-    timeout: int = 15,
     raise_on_error: bool = False,
 ) -> Optional[str]:
     last_error = "未知错误"
 
     for attempt in range(retries):
         try:
-            response = requests.get(url, headers=DEFAULT_HEADERS, timeout=timeout)
+            response = requests.get(url, headers=DEFAULT_HEADERS)
             response.raise_for_status()
             response.encoding = "gbk"
             payload = response.text

@@ -53,14 +53,13 @@ def _format_timestamp(raw_value: str) -> str:
 def _request_text(
     url: str,
     retries: int = 3,
-    timeout: int = 5,
     raise_on_error: bool = False,
 ) -> Optional[str]:
     last_error = "未知错误"
 
     for attempt in range(retries):
         try:
-            response = requests.get(url, headers=DEFAULT_HEADERS, timeout=timeout)
+            response = requests.get(url, headers=DEFAULT_HEADERS)
             response.raise_for_status()
             response.encoding = "gbk"
             payload = response.text.strip()
@@ -80,7 +79,6 @@ def _request_text(
 def get_realtime_data(
     code: str,
     retries: int = 3,
-    timeout: int = 5,
     raise_on_error: bool = False,
 ) -> Optional[Dict]:
     """
@@ -100,7 +98,7 @@ def get_realtime_data(
         return None
 
     url = f"http://qt.gtimg.cn/q={symbol}"
-    payload = _request_text(url, retries=retries, timeout=timeout, raise_on_error=raise_on_error)
+    payload = _request_text(url, retries=retries, raise_on_error=raise_on_error)
     if payload is None:
         return None
 
@@ -158,14 +156,13 @@ def get_realtime_data(
 def get_multiple_realtime_data(
     codes: List[str],
     retries: int = 3,
-    timeout: int = 5,
 ) -> List[Dict]:
     """
     批量获取多只股票的实时数据。
     """
     results: List[Dict] = []
     for code in codes:
-        data = get_realtime_data(code, retries=retries, timeout=timeout)
+        data = get_realtime_data(code, retries=retries)
         if data:
             results.append(data)
     return results

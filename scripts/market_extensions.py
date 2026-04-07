@@ -54,7 +54,6 @@ def _request_json_from_candidates(
     urls: tuple[str, ...],
     params: Dict[str, str],
     retries: int = 5,
-    timeout: int = 12,
     raise_on_error: bool = False,
 ) -> Optional[Dict]:
     last_error = "未知错误"
@@ -62,7 +61,7 @@ def _request_json_from_candidates(
     for url in urls:
         for attempt in range(retries):
             try:
-                response = requests.get(url, params=params, headers=DEFAULT_HEADERS, timeout=timeout)
+                response = requests.get(url, params=params, headers=DEFAULT_HEADERS)
                 response.raise_for_status()
                 payload = response.json()
                 if payload is None or "data" not in payload:
